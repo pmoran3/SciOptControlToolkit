@@ -16,19 +16,7 @@ class PolarizedBeamEnv(gym.Env):
 
         self.observation_space = spaces.Box(low=low_bounds, high=high_bounds, dtype=np.float32)
         
-        # self.observation_space = spaces.Dict(
-        #     {
-        #         "goni_ang": spaces.Box(low=0, high=np.pi, shape=(2,)), #goni angles
-        #         "plane": spaces.Discrete(2, start=1), # Orientation of the diamond radiator
-        #         "mode": spaces.Discrete(4, start=1), # Orientation of the diamond radiator
-        #         "phi022": spaces.Discrete(2), # Orientation of the diamond radiator [0/45]
-        #         "edge": spaces.Box(low=4000, high=self.Ebeam, shape=(1,)),
-        #         "req_edge": spaces.Box(low=4000, high=self.Ebeam, shape=(1,)),
-        #         "beam_pos": spaces.Box(low=-1.5, high=1.5, shape=(2,)),
-        #     }
-        # )
-
-        self.df = pd.read_csv('../../../data/csv/spring2023/gluex_phaseII_spring2023_nudge_final_no_enhance_deltac.csv')
+        self.df = pd.read_csv('../data/spring2023_nudge_final.csv')
         self.df = self.df[self.df['start_edge'] > 0]
         
         self.nsteps = 0
@@ -40,31 +28,14 @@ class PolarizedBeamEnv(gym.Env):
 
     def _get_obs(self):
         return np.array([self.pitch, self.yaw, self.plane, self.mode, self.phi022, self.edge, self.req_edge, self.beam_pos_x, self.beam_pos_y]) # beam position is two variables
-        # return {"goni_ang": [self.pitch, self.yaw], "plane": self.plane, "mode": self.mode, "phi022": self.phi022, "edge": self.edge, "req_edge": self.req_edge, "beam_pos": self.beam_pos}
 
         
     def reset(self, seed=None):
         super().reset(seed=seed)
 
+        # Utilize historical data to set parameters on the reset (within the dataset)        
         sample = self.df.sample()
         
-        # Utilize historical data to set parameters on the reset (within the dataset)
-        
-        # 99% of these values would be useless using random selection between 0/pi
-        # Set range for pitch and yaw around value of c angle within bounds
-        # Also a function of phi022
-        #self.pitch = self.np_random.uniform(0, np.pi)
-        #self.yaw = self.np_random.uniform(0, np.pi)
-
-        #self.plane = self.np_random.integers(1,2)
-        #self.mode = self.np_random.integers(1,4)
-        #self.phi022 = self.np_random.integers(1,2) # Planar polarization (direction of one of the vectors) 
-        #self.edge = self.np_random.uniform(7000, 9500)
-        #self.req_edge = 8420 # If you know this value then you can calculate the c angle value
-        
-        #self.beam_pos_x = -0.5
-        #self.beam_pos_y = 1.0
-
         self.pitch = np.deg2rad(sample.iloc[0]['start_pitch'])
         self.yaw = np.deg2rad(sample.iloc[0]['start_yaw'])
 
