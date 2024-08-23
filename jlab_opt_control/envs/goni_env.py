@@ -11,8 +11,11 @@ class PolarizedBeamEnv(gym.Env):
 
         self.action_space = spaces.Box(low=-np.pi/180, high=np.pi/180, shape=(2,), dtype=np.float32)
 
-        low_bounds = np.array([-np.pi/36, -np.pi/36, 1, 1, 0, 4000, 4000, -1.5, -1.5])
-        high_bounds = np.array([np.pi/36, np.pi/36, 2, 4, 45, self.Ebeam, self.Ebeam, 1.5, 1.5])
+        low_bounds = np.array([-np.pi/36, -np.pi/36, 4000])
+        high_bounds = np.array([np.pi/36, np.pi/36, self.Ebeam])
+
+        #low_bounds = np.array([-np.pi/36, -np.pi/36, 1, 1, 0, 4000, 4000, -1.5, -1.5])
+        #high_bounds = np.array([np.pi/36, np.pi/36, 2, 4, 45, self.Ebeam, self.Ebeam, 1.5, 1.5])        
 
         self.observation_space = spaces.Box(low=low_bounds, high=high_bounds, dtype=np.float32)
         
@@ -27,8 +30,7 @@ class PolarizedBeamEnv(gym.Env):
         
 
     def _get_obs(self):
-        return np.array([self.pitch, self.yaw, self.plane, self.mode, self.phi022, self.edge, self.req_edge, self.beam_pos_x, self.beam_pos_y]) # beam position is two variables
-
+        return np.array([self.pitch, self.yaw, self.edge]) # beam position is two variables
         
     def reset(self, seed=None):
         super().reset(seed=seed)
@@ -59,7 +61,6 @@ class PolarizedBeamEnv(gym.Env):
 
 
     def new_edge(self, delta_c):
-        #delta_c = np.deg2rad(delta_c)
 
         k = 26.5601 #MeV
         g = 2
@@ -122,8 +123,6 @@ class PolarizedBeamEnv(gym.Env):
         #from moveCbrem.sh script
         c=self.get_delta_c_from_delta_E() #radians
 
-              
-        #phi=self.phi022*np.pi/4
         phi=self.phi022        
         cosphi=np.cos(phi)
         sinphi=np.sin(phi)
@@ -143,8 +142,6 @@ class PolarizedBeamEnv(gym.Env):
                 v = - c*sinphi
                 h = + c*cosphi
                 
-        #pitch_change = np.rad2deg(h)
-        #yaw_change = np.rad2deg(v)
         pitch_change = h
         yaw_change = v        
 
@@ -165,14 +162,14 @@ class PolarizedBeamEnv(gym.Env):
         tf.summary.scalar(
             "Action Env 1", data=action_optimal[1], step=self.iterations)
 
-        self.pitch += action_optimal[0]
-        self.yaw += action_optimal[1]
+        #self.pitch += action_optimal[0]
+        #self.yaw += action_optimal[1]
 
-        #self.pitch += action[0]
-        #self.yaw += action[1]        
+        self.pitch += action[0]
+        self.yaw += action[1]        
 
-        #new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(action[0], action[1]))
-        new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(action_optimal[0], action_optimal[1]))        
+        new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(action[0], action[1]))
+        #new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(action_optimal[0], action_optimal[1]))        
 
         reward = np.absolute(self.edge - self.req_edge) - np.absolute(new_edge - self.req_edge) # Change in delta E
         # Reward is a function of your current step and your previous step
