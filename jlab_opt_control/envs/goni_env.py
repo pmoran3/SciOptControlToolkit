@@ -11,8 +11,8 @@ class PolarizedBeamEnv(gym.Env):
 
         self.action_space = spaces.Box(low=-np.pi/180, high=np.pi/180, shape=(2,), dtype=np.float32)
 
-        low_bounds = np.array([-np.pi/36, -np.pi/36, 4000])
-        high_bounds = np.array([np.pi/36, np.pi/36, self.Ebeam])
+        low_bounds = np.array([-np.pi/36, -np.pi/36, -np.pi, 4000])
+        high_bounds = np.array([np.pi/36, np.pi/36, np.pi, self.Ebeam])
 
         #low_bounds = np.array([-np.pi/36, -np.pi/36, 1, 1, 0, 4000, 4000, -1.5, -1.5])
         #high_bounds = np.array([np.pi/36, np.pi/36, 2, 4, 45, self.Ebeam, self.Ebeam, 1.5, 1.5])        
@@ -21,6 +21,8 @@ class PolarizedBeamEnv(gym.Env):
         
         self.df = pd.read_csv('../data/spring2023_nudge_final.csv')
         self.df = self.df[self.df['start_edge'] > 0]
+        self.df = self.df[self.df['plane'] == 1]
+        
         
         self.nsteps = 0
         self.iterations = 0        
@@ -30,7 +32,7 @@ class PolarizedBeamEnv(gym.Env):
         
 
     def _get_obs(self):
-        return np.array([self.pitch, self.yaw, self.edge]) # beam position is two variables
+        return np.array([self.pitch, self.yaw, self.roll, self.edge]) # beam position is two variables
         
     def reset(self, seed=None):
         super().reset(seed=seed)
@@ -40,6 +42,7 @@ class PolarizedBeamEnv(gym.Env):
         
         self.pitch = np.deg2rad(sample.iloc[0]['start_pitch'])
         self.yaw = np.deg2rad(sample.iloc[0]['start_yaw'])
+        self.roll = np.deg2rad(sample.iloc[0]['start_roll'])        
 
         self.plane = sample.iloc[0]['plane']
         if self.plane == 1:
@@ -171,9 +174,23 @@ class PolarizedBeamEnv(gym.Env):
         new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(action[0], action[1]))
         #new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(action_optimal[0], action_optimal[1]))        
 
+        tf.summary.scalar(
+            "Current Edge", data=self.edge, step=self.iterations)
+
+        tf.summary.scalar(
+            "Nominal Edge", data=self.req_edge, step=self.iterations)        
+
+        tf.summary.scalar(
+            "Distance to Nominal Edge", data=abs(self.edge-self.req_edge), step=self.iterations)
+
+        tf.summary.scalar(
+            "New Edge", data=new_edge, step=self.iterations)                
+        
         reward = np.absolute(self.edge - self.req_edge) - np.absolute(new_edge - self.req_edge) # Change in delta E
         # Reward is a function of your current step and your previous step
-        # reward = 1./(np.absolute(new_edge - self.req_edge)+0.00001)        
+        # reward = 1./(np.absolute(new_edge - self.req_edge)+0.00001)
+
+
 
         self.edge = new_edge
 
