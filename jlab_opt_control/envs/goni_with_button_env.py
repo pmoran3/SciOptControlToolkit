@@ -4,32 +4,24 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-class PolarizedBeamEnv(gym.Env):
+class PolarizedBeamButtonEnv(gym.Env):
     def __init__(self):
 
         self.Ebeam = 11600 #MeV
 
-        #self.action_space = spaces.Box(low=-np.pi/180, high=np.pi/180, shape=(2,), dtype=np.float32)
-        self.action_space = spaces.Box(low=-np.pi/(500000), high=np.pi/(500000), shape=(1,), dtype=np.float32)        
+        self.action_space = spaces.Box(low=-10**-3, high=10**-3, dtype=np.float32)
 
-        low_bounds = np.array([8000, 8600])
-        high_bounds = np.array([9000, 8700])
+        low_bounds = np.array([8000, 8000])
+        high_bounds = np.array([9000, 9000])
 
-        #low_bounds = np.array([-np.pi/90, 8000, 8600])
-        #high_bounds = np.array([np.pi/90, 9000, 8700])
-        
-        #low_bounds = np.array([-np.pi/36, -np.pi/36, -np.pi, 4000])
-        #high_bounds = np.array([np.pi/36, np.pi/36, np.pi, self.Ebeam])        
-
-
-        self.observation_space = spaces.Tuple(spaces.Discrete(3),)
-        #self.observation_space = spaces.Box(low=low_bounds, high=high_bounds, dtype=np.float32)        
+        #self.observation_space = spaces.Tuple(spaces.Discrete(3))
+        self.observation_space = spaces.Box(low=low_bounds, high=high_bounds, dtype=np.float32)        
 
         
         self.df = pd.read_csv('../data/spring2023_nudge_final.csv')
         self.df = self.df[self.df['start_edge'] > 0]
-        self.df = self.df[self.df['plane'] == 2]
-        self.df = self.df[self.df['phi022'] == 0]        
+        #self.df = self.df[self.df['plane'] == 2]
+        #self.df = self.df[self.df['phi022'] == 0]        
         
         
         self.nsteps = 0
@@ -40,11 +32,8 @@ class PolarizedBeamEnv(gym.Env):
         
 
     def _get_obs(self):
-        #return np.array([self.pitch, self.edge, self.req_edge]) # beam position is two variables
-        #return np.array([self.edge, self.req_edge]) # beam position is two variables    
-        #return np.array([self.pitch, self.yaw, self.roll, self.edge]) # beam position is two variables    
-        obs = (self.edge-self.req_edge)/np.absolute(self.edge-self.req_edge)
-        return np.array([obs])
+        return np.array([self.edge, self.req_edge])
+
         
     def reset(self, seed=None):
         super().reset(seed=seed)
@@ -90,60 +79,16 @@ class PolarizedBeamEnv(gym.Env):
         return Ef
 
 
-    def get_delta_c_from_delta_pitch_yaw(self, pitch, yaw):
-
-        if self.plane==1:
-            if self.mode==2 or self.mode==3:
-                if pitch>=0 and yaw>=0:
-                    c = np.sqrt(pitch*pitch + yaw*yaw)
-                elif pitch<=0 and yaw<=0:
-                    c = -np.sqrt(pitch*pitch + yaw*yaw)
-
-            else:
-                if pitch>=0 and yaw>=0:
-                    c = -np.sqrt(pitch*pitch + yaw*yaw)
-                elif pitch<=0 and yaw<=0:
-                    c = np.sqrt(pitch*pitch + yaw*yaw)
-
-        else:
-            if self.mode==1 or self.mode==4:
-                c=-pitch
-                #if pitch>=0 and yaw<=0:
-                    #c = -np.sqrt(pitch*pitch + yaw*yaw)
-                #elif pitch<=0 and yaw>=0:
-                    #c = np.sqrt(pitch*pitch + yaw*yaw)
-
-            else:
-                c=pitch
-                #if pitch>=0 and yaw<=0:
-                    #c = np.sqrt(pitch*pitch + yaw*yaw)
-                #elif pitch<=0 and yaw>=0:
-                    #c = -np.sqrt(pitch*pitch + yaw*yaw)
-
-        tf.summary.scalar(
-            "delta c", data=c, step=self.iterations)
-                    
-        return c
-    
-    def get_delta_c_from_delta_E(self):
-        k = 26.5601 #MeV
-        g = 2
-        E0 = self.Ebeam
-        Ei = self.edge
-        Ef = self.req_edge
-        
-        delta_c = (k/g)*(Ef-Ei)/((E0-Ei)*(E0-Ef)) #in radians
-
+    def getDeltaC(self, action):
+        delta_c=0.0001
+        if action<0:
+            delta_c*=-1
         return delta_c
-
     
-    def get_optimal_action(self):
-        #from moveCbrem.sh script
-        c=self.get_delta_c_from_delta_E() #radians
-
-        phi=self.phi022        
-        cosphi=np.cos(phi)
-        sinphi=np.sin(phi)
+    def moveCbrem(self, c):
+        
+        cosphi=np.cos(self.phi022)
+        sinphi=np.sin(self.phi022)
 
         if self.plane==1:
             if self.mode==2 or self.mode==3:
@@ -163,7 +108,6 @@ class PolarizedBeamEnv(gym.Env):
         pitch_change = h
         yaw_change = v        
 
-
         return np.array([pitch_change, yaw_change])
 
     
@@ -172,29 +116,13 @@ class PolarizedBeamEnv(gym.Env):
         self.nsteps += 1
         self.iterations += 1
 
-        action_optimal = self.get_optimal_action()
-
-        tf.summary.scalar(
-            "Action Env 0", data=action_optimal[0], step=self.iterations)
-
-        tf.summary.scalar(
-            "Action Env 1", data=action_optimal[1], step=self.iterations)
-
-        #self.pitch += action_optimal[0]
-        #self.yaw += action_optimal[1]
-
-        delta_pitch = action[0]
-        #delta_yaw = action[1]
-        delta_yaw = 0        
+        goni_change=moveCbrem(action)
         
-        self.pitch += delta_pitch
-        self.yaw += delta_yaw        
+        self.pitch += goni_change[0]
+        self.yaw += goni_change[1] 
 
-        new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(delta_pitch, delta_yaw))
-        #new_edge = self.new_edge(self.get_delta_c_from_delta_pitch_yaw(action_optimal[0], action_optimal[1]))        
+        new_edge = self.new_edge(action)
 
-        #print("Step %i, edge %f" % (self.nsteps, self.edge))
-        
         tf.summary.scalar(
             "Current Edge", data=self.edge, step=self.iterations)
 
