@@ -109,7 +109,7 @@ class PolarizedBeamButtonEnv(gym.Env):
         self.nsteps += 1
         self.iterations += 1
 
-        delta_c = action[0]
+        delta_c = np.deg2rad(action[0])
         
         goni_change=self.moveCbrem(delta_c)
         
