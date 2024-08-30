@@ -77,12 +77,6 @@ class PolarizedBeamButtonEnv(gym.Env):
 
         return Ef
 
-
-    def getDeltaC(self, action):
-        delta_c=0.0001
-        if action<0:
-            delta_c*=-1
-        return delta_c
     
     def moveCbrem(self, c):
         
@@ -115,12 +109,14 @@ class PolarizedBeamButtonEnv(gym.Env):
         self.nsteps += 1
         self.iterations += 1
 
-        goni_change=self.moveCbrem(action[0])
+        delta_c = action[0]
+        
+        goni_change=self.moveCbrem(delta_c)
         
         self.pitch += goni_change[0]
         self.yaw += goni_change[1] 
 
-        new_edge = self.new_edge(action[0])
+        new_edge = self.new_edge(delta_c)
                 
         tf.summary.scalar(
             "Current Edge", data=self.edge, step=self.iterations)
