@@ -9,7 +9,7 @@ class PolarizedBeamButtonEnv(gym.Env):
 
         self.Ebeam = 11600 #MeV
 
-        self.action_space = spaces.Box(low=-10**-3, high=10**-3, dtype=np.float32)
+        self.action_space = spaces.Box(low=-10**-3, high=10**-3, shape=(1,), dtype=np.float32)
 
         low_bounds = np.array([8000, 8000])
         high_bounds = np.array([9000, 9000])
@@ -52,8 +52,7 @@ class PolarizedBeamButtonEnv(gym.Env):
         else:
             self.mode = sample.iloc[0]['perp_mode']            
         self.phi022 = np.deg2rad(sample.iloc[0]['phi022']) # Planar polarization (direction of one of the vectors) 
-        if self.phi022!=0:
-            print("Invalid phi022 value.")
+
         self.edge = sample.iloc[0]['start_edge']
         self.req_edge = sample.iloc[0]['start_req_edge'] # If you know this value then you can calculate the c angle value
         
@@ -116,13 +115,13 @@ class PolarizedBeamButtonEnv(gym.Env):
         self.nsteps += 1
         self.iterations += 1
 
-        goni_change=moveCbrem(action)
+        goni_change=self.moveCbrem(action[0])
         
         self.pitch += goni_change[0]
         self.yaw += goni_change[1] 
 
-        new_edge = self.new_edge(action)
-
+        new_edge = self.new_edge(action[0])
+                
         tf.summary.scalar(
             "Current Edge", data=self.edge, step=self.iterations)
 
